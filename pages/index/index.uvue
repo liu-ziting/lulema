@@ -555,6 +555,11 @@
 		align-items: center;
 		font-size: 16px;
 		font-weight: bold;
+		
+	}
+
+	uni-button:after {
+		border: none !important;
 	}
 	
 	.btn-confirm {

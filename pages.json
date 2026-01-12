@@ -9,7 +9,17 @@
 		{
 			"path": "pages/mine/mine",
 			"style": {
-				"navigationStyle": "custom"
+				"navigationBarTitleText": "我的",
+				"navigationBarBackgroundColor": "#e0f7fa"
+			}
+		},
+		{
+			"path": "pages/settings/settings",
+			"style": {
+				"navigationBarTitleText": "设置",
+				"navigationStyle": "default",
+				"navigationBarBackgroundColor": "#f0f4ff",
+				"navigationBarTextStyle": "black"
 			}
 		}
 	],

@@ -8,6 +8,9 @@
 				<text class="privacy-title">隐私安全保护中</text>
 				<text class="privacy-desc">数据仅存储在本地，您的秘密只有自己知道。</text>
 			</view>
+			<view class="settings-btn" @click="goToSettings">
+				<text class="settings-icon">⚙️</text>
+			</view>
 		</view>
 
 		<!-- 统计概览 -->
@@ -457,6 +460,11 @@
 			isSameDay(d1: CalendarDay | null, d2: CalendarDay): boolean {
 				if (!d1) return false
 				return d1.day === d2.day && d1.month === d2.month && d1.year === d2.year
+			},
+			goToSettings() {
+				uni.navigateTo({
+					url: '/pages/settings/settings'
+				})
 			}
 		}
 	}
@@ -515,6 +523,25 @@
 		font-size: 13px;
 		color: #555;
 		line-height: 1.4;
+	}
+	
+	.settings-btn {
+		width: 40px;
+		height: 40px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		border-radius: 20px;
+		background-color: rgba(255, 255, 255, 0.5);
+		margin-left: 10px;
+	}
+	
+	.settings-btn:active {
+		background-color: rgba(0, 0, 0, 0.05);
+	}
+	
+	.settings-icon {
+		font-size: 20px;
 	}
 	
 	.stats-card {
