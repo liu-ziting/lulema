@@ -1,9 +1,12 @@
 <template>
 	<view class="content">
-		<view class="user-card">
-			<view class="user-info">
-				<text class="nickname">Lulema User</text>
-				<text class="user-desc">坚持就是胜利</text>
+		<view class="privacy-card">
+			<view class="privacy-icon-box">
+				<text class="privacy-icon">🔒</text>
+			</view>
+			<view class="privacy-content">
+				<text class="privacy-title">隐私安全保护中</text>
+				<text class="privacy-desc">数据仅存储在本地，您的秘密只有自己知道。</text>
 			</view>
 		</view>
 
@@ -25,9 +28,23 @@
 			</view>
 			
 			<!-- AI 分析入口 -->
-			<view class="ai-entry" @click="startAiAnalysis">
-				<view class="ai-entry-content">
-					<text class="ai-text">🧠生成 AI 诊断报告</text>
+			<view class="ai-entry-btn" @click="startAiAnalysis">
+				<text class="ai-icon">🩺</text>
+				<text class="ai-text">获取 AI 深度诊断</text>
+			</view>
+		</view>
+
+		
+		<!-- 原因分析卡片 -->
+		<view class="analysis-card" v-if="reasonStats.length > 0">
+			<text class="card-title">破戒原因分析</text>
+			<view class="chart-container">
+				<view class="chart-row" v-for="(item, index) in reasonStats" :key="index">
+					<text class="chart-label">{{ item.reason || '未知' }}</text>
+					<view class="progress-container">
+						<view class="progress-bar" :style="{ width: item.percentage + '%' }"></view>
+					</view>
+					<text class="chart-value">{{ item.count }}次</text>
 				</view>
 			</view>
 		</view>
@@ -95,30 +112,32 @@
 
 		<!-- AI 分析结果弹窗 -->
 		<view class="modal-overlay" v-if="showAiModal" @click="closeAiModal">
-			<view class="modal-content ai-modal" @click.stop>
-				<text class="modal-close" @click="closeAiModal">×</text>
-				<view class="modal-header">
-					<text class="modal-title">AI 诊断报告</text>
+			<view class="modal-content ai-report-card" @click.stop>
+				<view class="report-stripe"></view>
+				<text class="modal-close report-close" @click="closeAiModal">×</text>
+				
+				<view class="report-header">
+					<text class="report-title">📋 行为诊断报告</text>
+					<text class="report-date">诊断时间：{{ reportDateStr }}</text>
 				</view>
-				<scroll-view class="ai-scroll-content" scroll-y="true">
-					<text class="ai-content-text">{{ aiAnalysisContent }}</text>
+				
+				<view class="report-divider"></view>
+
+				<scroll-view class="report-body" scroll-y="true">
+					<text class="report-text">{{ aiAnalysisContent }}</text>
 				</scroll-view>
+				
+				<view class="report-footer">
+					<view class="report-stamp">
+						<text class="stamp-text">LULEMA</text>
+						<text class="stamp-sub">AI LAB</text>
+					</view>
+					<text class="report-signature">主治医师：Lulema AI 教练</text>
+				</view>
 			</view>
 		</view>
 
-		<!-- 原因分析卡片 -->
-		<view class="analysis-card" v-if="reasonStats.length > 0">
-			<text class="card-title">破戒原因分析</text>
-			<view class="chart-container">
-				<view class="chart-row" v-for="(item, index) in reasonStats" :key="index">
-					<text class="chart-label">{{ item.reason || '未知' }}</text>
-					<view class="progress-container">
-						<view class="progress-bar" :style="{ width: item.percentage + '%' }"></view>
-					</view>
-					<text class="chart-value">{{ item.count }}次</text>
-				</view>
-			</view>
-		</view>
+		
 	</view>
 </template>
 
@@ -164,6 +183,7 @@
 				isAnalyzing: false,
 				showAiModal: false,
 				aiAnalysisContent: "",
+				reportDateStr: "",
 				reasonStats: [] as ReasonStat[]
 			}
 		},
@@ -207,6 +227,11 @@
 					const result = await analyzeCheckIns(this.checkins);
 					if (result.success) {
 						this.aiAnalysisContent = result.content;
+						
+						// Generate date string
+						const d = new Date();
+						this.reportDateStr = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+						
 						this.showAiModal = true;
 					} else {
 						uni.showToast({
@@ -443,49 +468,53 @@
 		flex-direction: column;
 		background: linear-gradient(180deg, #f0f4ff 0%, #ffffff 100%);
 		min-height: 100%;
-		padding: 60px 20px 20px 20px;
+		padding: 20px 20px 20px 20px;
 	}
 	
-	.user-card {
+	.privacy-card {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		align-items: center;
-		padding: 0;
-		background-color: transparent;
-		border-radius: 0;
-		margin-bottom: 40px;
-		box-shadow: none;
+		padding: 20px;
+		background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%);
+		border-radius: 16px;
+		margin-bottom: 30px;
+		box-shadow: 0 4px 12px rgba(0, 150, 136, 0.1);
+		border: 1px solid rgba(0, 150, 136, 0.1);
 	}
 	
-	.avatar {
-		width: 80px;
-		height: 80px;
-		border-radius: 40px;
-		background-color: #fff;
-		margin-right: 0;
-		margin-bottom: 16px;
-		border: 4px solid #ffffff;
-		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-	}
-	
-	.user-info {
+	.privacy-icon-box {
+		width: 48px;
+		height: 48px;
+		border-radius: 24px;
+		background-color: rgba(0, 150, 136, 0.1);
 		display: flex;
-		flex-direction: column;
+		justify-content: center;
 		align-items: center;
+		margin-right: 15px;
 	}
 	
-	.nickname {
+	.privacy-icon {
 		font-size: 24px;
-		font-weight: 800;
-		color: #333;
-		margin-bottom: 8px;
-		text-shadow: 0 2px 4px rgba(0,0,0,0.05);
 	}
 	
-	.user-desc {
-		font-size: 14px;
-		color: #666;
-		letter-spacing: 1px;
+	.privacy-content {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+	}
+	
+	.privacy-title {
+		font-size: 18px;
+		font-weight: bold;
+		color: #00796b;
+		margin-bottom: 4px;
+	}
+	
+	.privacy-desc {
+		font-size: 13px;
+		color: #555;
+		line-height: 1.4;
 	}
 	
 	.stats-card {
@@ -821,19 +850,23 @@
 		font-size: 15px;
 	}
 
-	/* AI Analysis Styles */
-	.ai-entry {
+	/* AI Report Styles */
+	.ai-entry-btn {
 		margin-top: 15px;
-		padding-top: 15px;
-		border-top: 1px dashed #eee;
+		background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+		border-radius: 12px;
+		padding: 12px 20px;
 		display: flex;
-		justify-content: space-between;
+		flex-direction: row;
+		justify-content: center;
 		align-items: center;
+		position: relative;
+		box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+		transition: transform 0.2s;
 	}
 	
-	.ai-entry-content {
-		display: flex;
-		align-items: center;
+	.ai-entry-btn:active {
+		transform: scale(0.98);
 	}
 	
 	.ai-icon {
@@ -842,33 +875,155 @@
 	}
 	
 	.ai-text {
+		color: #ffffff;
+		font-size: 16px;
+		font-weight: bold;
+		letter-spacing: 1px;
+	}
+	
+	.ai-badge {
+		position: absolute;
+		top: -8px;
+		right: -5px;
+		background-color: #ff7675;
+		color: #fff;
+		font-size: 10px;
+		font-weight: bold;
+		padding: 2px 6px;
+		border-radius: 8px;
+		box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+	}
+
+	.ai-report-card {
+		background-color: #fcfcfc;
+		border: 1px solid #e0e0e0;
+		padding: 0;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		max-height: 100%;
+		width: 100%;
+		border-radius: 0;
+	}
+	
+	.report-stripe {
+		height: 8px;
+		background: repeating-linear-gradient(
+			45deg,
+			#ff6b6b,
+			#ff6b6b 10px,
+			#f0f0f0 10px,
+			#f0f0f0 20px
+		);
+		width: 100%;
+		/* Fix for full screen safe area */
+		margin-top: var(--status-bar-height); 
+	}
+	
+	.report-close {
+		top: calc(var(--status-bar-height) + 15px);
+		right: 15px;
+		color: #333;
+		z-index: 20;
+		background-color: rgba(255,255,255,0.8);
+		border-radius: 50%;
+		width: 32px;
+		height: 32px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		font-size: 24px;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	}
+	
+	.report-header {
+		padding: 25px 20px 15px 20px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		background-color: #f9f9f9;
+	}
+	
+	.report-title {
+		font-size: 22px;
+		font-weight: 900;
+		color: #333;
+		margin-bottom: 8px;
+		letter-spacing: 1px;
+	}
+	
+	.report-date {
+		font-size: 12px;
+		color: #888;
+		font-family: monospace;
+	}
+	
+	.report-divider {
+		height: 2px;
+		background-image: linear-gradient(to right, #ccc 50%, rgba(255, 255, 255, 0) 0%);
+		background-position: bottom;
+		background-size: 10px 2px;
+		background-repeat: repeat-x;
+		margin: 0 20px;
+	}
+	
+	.report-body {
+		flex: 1;
+		padding: 20px 25px;
+		background-color: #fff;
+		width: 100%;
+		box-sizing: border-box;
+	}
+	
+	.report-text {
+		font-size: 16px;
+		color: #444;
+		line-height: 1.8;
+		white-space: pre-wrap;
+		font-family: sans-serif;
+	}
+	
+	.report-footer {
+		padding: 15px 20px;
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-end;
+		background-color: #f9f9f9;
+		border-top: 1px solid #eee;
+	}
+	
+	.report-signature {
+		font-family: "Cursive", sans-serif; /* Fallback */
 		font-size: 14px;
-		color: #4CAF50;
+		color: #333;
+		font-weight: bold;
+		border-bottom: 1px solid #333;
+		padding-bottom: 2px;
+	}
+	
+	.report-stamp {
+		width: 60px;
+		height: 60px;
+		border: 2px solid #ff5252;
+		border-radius: 50%;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		transform: rotate(-15deg);
+		opacity: 0.8;
+	}
+	
+	.stamp-text {
+		color: #ff5252;
+		font-size: 10px;
 		font-weight: bold;
 	}
 	
-	.ai-arrow {
-		color: #999;
-		font-size: 14px;
-	}
-	
-	.ai-modal {
-		height: 80%;
-		max-height: 80%;
-	}
-	
-	.ai-scroll-content {
-		flex: 1;
-		width: 100%;
-		margin-top: 10px;
-		overflow: hidden; /* 确保 scroll-view 处理滚动 */
-	}
-	
-	.ai-content-text {
-		font-size: 16px;
-		color: #333;
-		line-height: 1.6;
-		white-space: pre-wrap; /* 保留换行符 */
+	.stamp-sub {
+		color: #ff5252;
+		font-size: 8px;
 	}
 
 </style>
