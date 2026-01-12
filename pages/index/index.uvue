@@ -157,15 +157,12 @@
 					uni.removeStorageSync('lulema_checkins')
 					uni.setStorageSync('lulema_checkins_v2', checkins)
 				} else if (Array.isArray(data)) {
-					// Use JSON.parse/stringify for safe type casting in UTS if needed, 
-					// but here we assume the storage structure is correct or we map it.
-					// In UTS, direct casting from any to specific struct array might need care.
-					// For now, assuming simple array of objects.
 					const rawList = data as Array<any>
 					checkins = rawList.map((item): CheckInRecord => {
+						const obj = item as UTSJSONObject
 						return {
-							timestamp: item['timestamp'] as number,
-							reason: item['reason'] as string
+							timestamp: obj.getNumber('timestamp'),
+							reason: obj.getString('reason')
 						} as CheckInRecord
 					})
 				}
@@ -186,7 +183,9 @@
 				}
 				
 				// Sort checkins and normalize to date strings (YYYY-MM-DD)
-				const sorted = checkins.sort((a, b) => a.timestamp - b.timestamp)
+				const sorted = checkins.sort((a, b): number => {
+					return a.timestamp - b.timestamp
+				})
 				const uniqueDays = new Set<string>()
 				sorted.forEach(record => {
 					const d = new Date(record.timestamp)
@@ -278,9 +277,10 @@
 				if (Array.isArray(data)) {
 					const rawList = data as Array<any>
 					checkins = rawList.map((item): CheckInRecord => {
+						const obj = item as UTSJSONObject
 						return {
-							timestamp: item['timestamp'] as number,
-							reason: item['reason'] as string
+							timestamp: obj.getNumber('timestamp'),
+							reason: obj.getString('reason')
 						} as CheckInRecord
 					})
 				}
@@ -301,12 +301,6 @@
 					duration: 2000
 				})
 				
-				// Haptic feedback
-				uni.vibrateShort({
-					success: function () {
-						console.log('success');
-					}
-				});
 			},
 			updateTips() {
 				if (this.todayCount === 0) {

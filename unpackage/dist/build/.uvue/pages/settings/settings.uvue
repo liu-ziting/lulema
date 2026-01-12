@@ -1,0 +1,85 @@
+
+	export default {
+		data() {
+			return {
+				
+			}
+		},
+		methods: {
+			clearData() {
+				uni.showModal({
+					title: '警告',
+					content: '确定要清空所有打卡记录吗？此操作不可恢复！',
+					confirmColor: '#FF0000',
+					success: (res) => {
+						if (res.confirm) {
+							uni.removeStorageSync('lulema_checkins');
+							uni.removeStorageSync('lulema_checkins_v2');
+							uni.showToast({
+								title: '数据已清空',
+								icon: 'success'
+							});
+						}
+					}
+				});
+			},
+			showAbout() {
+				uni.showModal({
+					title: '关于我们',
+					content: 'LuLeMa 是一款专注于帮助用户养成良好习惯的本地化工具。\n\n我们承诺：\n1. 所有数据仅存储在您的手机本地\n2. 不会上传任何个人隐私\n3. 永久免费无广告\n\n感谢您的使用！',
+					showCancel: false,
+					confirmText: '知道了'
+				});
+			},
+			showFeedback() {
+				uni.showToast({
+					title: '暂未开放，敬请期待',
+					icon: 'none'
+				});
+			}
+		}
+	}
+
+
+function GenPagesSettingsSettingsRender(): any | null {
+const _ctx = this
+const _cache = this.$.renderCache
+  return createElementVNode("view", utsMapOf({ class: "content" }), [
+    createElementVNode("view", utsMapOf({ class: "settings-list" }), [
+      createElementVNode("view", utsMapOf({
+        class: "setting-item",
+        onClick: _ctx.clearData
+      }), [
+        createElementVNode("view", utsMapOf({ class: "setting-left" }), [
+          createElementVNode("text", utsMapOf({ class: "setting-icon" }), "🗑️"),
+          createElementVNode("text", utsMapOf({ class: "setting-label" }), "清空所有数据")
+        ]),
+        createElementVNode("text", utsMapOf({ class: "arrow" }), "›")
+      ], 8, ["onClick"]),
+      createElementVNode("view", utsMapOf({
+        class: "setting-item",
+        onClick: _ctx.showAbout
+      }), [
+        createElementVNode("view", utsMapOf({ class: "setting-left" }), [
+          createElementVNode("text", utsMapOf({ class: "setting-icon" }), "ℹ️"),
+          createElementVNode("text", utsMapOf({ class: "setting-label" }), "关于我们")
+        ]),
+        createElementVNode("text", utsMapOf({ class: "arrow" }), "›")
+      ], 8, ["onClick"]),
+      createElementVNode("view", utsMapOf({
+        class: "setting-item",
+        onClick: _ctx.showFeedback
+      }), [
+        createElementVNode("view", utsMapOf({ class: "setting-left" }), [
+          createElementVNode("text", utsMapOf({ class: "setting-icon" }), "📧"),
+          createElementVNode("text", utsMapOf({ class: "setting-label" }), "意见反馈")
+        ]),
+        createElementVNode("text", utsMapOf({ class: "arrow" }), "›")
+      ], 8, ["onClick"])
+    ]),
+    createElementVNode("view", utsMapOf({ class: "version-info" }), [
+      createElementVNode("text", utsMapOf({ class: "version-text" }), "LuLeMa v1.0.0")
+    ])
+  ])
+}
+const GenPagesSettingsSettingsStyles = [utsMapOf([["content", padStyleMapOf(utsMapOf([["backgroundImage", "linear-gradient(180deg, #f0f4ff 0%, #ffffff 100%)"], ["paddingTop", 0], ["paddingRight", 20], ["paddingBottom", 20], ["paddingLeft", 20], ["display", "flex"], ["flexDirection", "column"]]))], ["nav-bar", padStyleMapOf(utsMapOf([["marginTop", CSS_VAR_STATUS_BAR_HEIGHT], ["height", 44], ["display", "flex"], ["flexDirection", "row"], ["alignItems", "center"], ["justifyContent", "space-between"], ["marginBottom", 20]]))], ["nav-left", padStyleMapOf(utsMapOf([["width", 44], ["height", 44], ["display", "flex"], ["justifyContent", "center"], ["alignItems", "center"], ["marginLeft", -10]]))], ["nav-back-icon", padStyleMapOf(utsMapOf([["fontSize", 24], ["color", "#333333"], ["fontWeight", "bold"]]))], ["nav-title", padStyleMapOf(utsMapOf([["fontSize", 18], ["fontWeight", "bold"], ["color", "#333333"]]))], ["nav-right", padStyleMapOf(utsMapOf([["width", 44]]))], ["settings-list", padStyleMapOf(utsMapOf([["backgroundColor", "#ffffff"], ["borderRadius", 20], ["overflow", "hidden"], ["boxShadow", "0 8px 20px rgba(0, 0, 0, 0.03)"], ["borderWidth", 1], ["borderStyle", "solid"], ["borderColor", "rgba(0,0,0,0.02)"]]))], ["setting-item", padStyleMapOf(utsMapOf([["display", "flex"], ["flexDirection", "row"], ["justifyContent", "space-between"], ["alignItems", "center"], ["paddingTop", 16], ["paddingRight", 20], ["paddingBottom", 16], ["paddingLeft", 20], ["borderBottomWidth", 1], ["borderBottomStyle", "solid"], ["borderBottomColor", "#f0f0f0"], ["borderBottomWidth:last-child", "medium"], ["borderBottomStyle:last-child", "none"], ["borderBottomColor:last-child", "#000000"], ["backgroundColor:active", "#f9f9f9"]]))], ["setting-left", padStyleMapOf(utsMapOf([["display", "flex"], ["flexDirection", "row"], ["alignItems", "center"]]))], ["setting-label", padStyleMapOf(utsMapOf([["fontSize", 16], ["color", "#333333"], ["marginLeft", 20]]))], ["arrow", padStyleMapOf(utsMapOf([["color", "#cccccc"], ["fontSize", 20]]))], ["version-info", padStyleMapOf(utsMapOf([["marginTop", 30], ["display", "flex"], ["justifyContent", "center"]]))], ["version-text", padStyleMapOf(utsMapOf([["color", "#999999"], ["fontSize", 12]]))]])]

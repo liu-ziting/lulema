@@ -8,7 +8,7 @@
 				<text class="privacy-title">隐私安全保护中</text>
 				<text class="privacy-desc">数据仅存储在本地，您的秘密只有自己知道。</text>
 			</view>
-			<view class="settings-btn" @click="goToSettings">
+			<view v-if='false' class="settings-btn" @click="goToSettings">
 				<text class="settings-icon">⚙️</text>
 			</view>
 		</view>
@@ -43,7 +43,7 @@
 			<text class="card-title">破戒原因分析</text>
 			<view class="chart-container">
 				<view class="chart-row" v-for="(item, index) in reasonStats" :key="index">
-					<text class="chart-label">{{ item.reason || '未知' }}</text>
+					<text class="chart-label">{{ item.reason == '' ? '未知' : item.reason }}</text>
 					<view class="progress-container">
 						<view class="progress-bar" :style="{ width: item.percentage + '%' }"></view>
 					</view>
@@ -106,7 +106,7 @@
 							<text class="record-time">{{ formatTime(record.timestamp) }}</text>
 						</view>
 						<view class="record-info">
-							<text class="record-reason">{{ record.reason || '未记录原因' }}</text>
+							<text class="record-reason">{{ record.reason == '' ? '未记录原因' : record.reason }}</text>
 						</view>
 					</view>
 				</scroll-view>
@@ -117,7 +117,7 @@
 		<view class="modal-overlay" v-if="showAiModal" @click="closeAiModal">
 			<view class="modal-content ai-report-card" @click.stop>
 				<view class="report-stripe"></view>
-				<text class="modal-close report-close" @click="closeAiModal">×</text>
+				<text class="modal-close report-close" :style="{top: closeBtnTop + 'px'}" @click="closeAiModal">×</text>
 				
 				<view class="report-header">
 					<text class="report-title">📋 行为诊断报告</text>
@@ -191,18 +191,23 @@
 			}
 		},
 		computed: {
+			closeBtnTop(): number {
+				return uni.getSystemInfoSync().statusBarHeight + 15
+			},
 			selectedDateStr(): string {
-				if (!this.selectedDate) return ''
+				if (this.selectedDate == null) return ''
 				return `${this.selectedDate!.year}年${this.selectedDate!.month}月${this.selectedDate!.day}日`
 			},
 			selectedDayRecords(): CheckInRecord[] {
-				if (!this.selectedDate) return []
+				if (this.selectedDate == null) return []
 				const start = new Date(this.selectedDate!.year, this.selectedDate!.month - 1, this.selectedDate!.day).getTime()
 				const end = start + 86400000
 				
 				return this.checkins.filter((r: CheckInRecord): boolean => {
 					return r.timestamp >= start && r.timestamp < end
-				}).sort((a, b) => b.timestamp - a.timestamp)
+				}).sort((a, b): number => {
+					return b.timestamp - a.timestamp
+				})
 			}
 		},
 		onShow() {
@@ -268,9 +273,10 @@
 				if (Array.isArray(data)) {
 					const rawList = data as Array<any>
 					this.checkins = rawList.map((item): CheckInRecord => {
+						const obj = item as UTSJSONObject
 						return {
-							timestamp: item['timestamp'] as number,
-							reason: item['reason'] as string
+							timestamp: obj.getNumber('timestamp'),
+							reason: obj.getString('reason')
 						} as CheckInRecord
 					})
 				} else {
@@ -328,7 +334,9 @@
 				}
 				
 				// Sort checkins
-				const sorted = this.checkins.sort((a, b) => a.timestamp - b.timestamp)
+				const sorted = this.checkins.sort((a, b): number => {
+					return a.timestamp - b.timestamp
+				})
 				const uniqueDays = new Set<string>()
 				sorted.forEach(r => {
 					const d = new Date(r.timestamp)
@@ -343,7 +351,9 @@
 					dayTimestamps.push(d.getTime())
 				})
 				
-				dayTimestamps.sort((a, b) => a - b)
+				dayTimestamps.sort((a, b): number => {
+					return a - b
+				})
 
 				let currentStreak = 0
 				let maxStreak = 0
@@ -476,7 +486,7 @@
 		flex-direction: column;
 		background: linear-gradient(180deg, #f0f4ff 0%, #ffffff 100%);
 		min-height: 100%;
-		padding: 20px 20px 20px 20px;
+		padding: 50px 20px 20px 20px;
 	}
 	
 	.privacy-card {
@@ -928,9 +938,9 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		height: 100%;
-		max-height: 100%;
-		width: 100%;
+		height: 80%;
+		max-height: 80%;
+		width: 90%;
 		border-radius: 0;
 	}
 	
@@ -949,7 +959,6 @@
 	}
 	
 	.report-close {
-		top: calc(var(--status-bar-height) + 15px);
 		right: 15px;
 		color: #333;
 		z-index: 20;
