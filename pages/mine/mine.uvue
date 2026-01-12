@@ -7,20 +7,32 @@
 			</view>
 		</view>
 
-		<view class="stats-row">
-			<view class="stat-box">
-				<text class="stat-num">{{ totalCount }}</text>
-				<text class="stat-label">总次数</text>
+		<!-- 统计概览 -->
+		<view class="stats-card">
+			<view class="stats-row">
+				<view class="stat-item">
+					<text class="stat-num">{{ totalCount }}</text>
+					<text class="stat-label">总破戒</text>
+				</view>
+				<view class="stat-item">
+					<text class="stat-num">{{ currentStreak }}</text>
+					<text class="stat-label">当前连击</text>
+				</view>
+				<view class="stat-item">
+					<text class="stat-num">{{ maxStreak }}</text>
+					<text class="stat-label">最长连击</text>
+				</view>
 			</view>
-			<view class="stat-box">
-				<text class="stat-num">{{ todayCount }}</text>
-				<text class="stat-label">今日次数</text>
-			</view>
-			<view class="stat-box">
-				<text class="stat-num">{{ maxStreak }}</text>
-				<text class="stat-label">连续打卡</text>
+			
+			<!-- AI 分析入口 -->
+			<view class="ai-entry" @click="startAiAnalysis">
+				<view class="ai-entry-content">
+					<text class="ai-text">🧠生成 AI 诊断报告</text>
+				</view>
 			</view>
 		</view>
+
+		<!-- 原因分布 -->
 
 		<view class="calendar-card">
 			<view class="calendar-header">
@@ -81,6 +93,19 @@
 			</view>
 		</view>
 
+		<!-- AI 分析结果弹窗 -->
+		<view class="modal-overlay" v-if="showAiModal" @click="closeAiModal">
+			<view class="modal-content ai-modal" @click.stop>
+				<text class="modal-close" @click="closeAiModal">×</text>
+				<view class="modal-header">
+					<text class="modal-title">AI 诊断报告</text>
+				</view>
+				<scroll-view class="ai-scroll-content" scroll-y="true">
+					<text class="ai-content-text">{{ aiAnalysisContent }}</text>
+				</scroll-view>
+			</view>
+		</view>
+
 		<!-- 原因分析卡片 -->
 		<view class="analysis-card" v-if="reasonStats.length > 0">
 			<text class="card-title">破戒原因分析</text>
@@ -98,6 +123,8 @@
 </template>
 
 <script>
+	import { analyzeCheckIns, AiAnalysisResult } from '../../services/aiService.uts';
+
 	type CheckInRecord = {
 		timestamp: number
 		reason: string
@@ -125,6 +152,7 @@
 				totalCount: 0,
 				todayCount: 0,
 				maxStreak: 0,
+				currentStreak: 0,
 				currentYear: 0,
 				currentMonth: 0,
 				weekDays: ['日', '一', '二', '三', '四', '五', '六'],
@@ -132,6 +160,10 @@
 				checkins: [] as CheckInRecord[],
 				selectedDate: null as CalendarDay | null,
 				showDayModal: false,
+				// AI Analysis
+				isAnalyzing: false,
+				showAiModal: false,
+				aiAnalysisContent: "",
 				reasonStats: [] as ReasonStat[]
 			}
 		},
@@ -157,6 +189,44 @@
 			this.loadStats()
 		},
 		methods: {
+			async startAiAnalysis() {
+				if (this.checkins.length < 3) {
+					uni.showToast({
+						title: '数据太少，再坚持打卡几次吧',
+						icon: 'none'
+					});
+					return;
+				}
+				
+				this.isAnalyzing = true;
+				uni.showLoading({
+					title: '鹿师傅思考中...'
+				});
+				
+				try {
+					const result = await analyzeCheckIns(this.checkins);
+					if (result.success) {
+						this.aiAnalysisContent = result.content;
+						this.showAiModal = true;
+					} else {
+						uni.showToast({
+							title: result.content,
+							icon: 'none'
+						});
+					}
+				} catch (e) {
+					uni.showToast({
+						title: '分析出错了',
+						icon: 'none'
+					});
+				} finally {
+					this.isAnalyzing = false;
+					uni.hideLoading();
+				}
+			},
+			closeAiModal() {
+				this.showAiModal = false;
+			},
 			formatTime(timestamp: number): string {
 				const date = new Date(timestamp)
 				const hours = date.getHours().toString().padStart(2, '0')
@@ -266,6 +336,7 @@
 					}
 				}
 				this.maxStreak = maxStreak
+				this.currentStreak = currentStreak
 			},
 			changeMonth(delta: number) {
 				let year = this.currentYear
@@ -417,24 +488,30 @@
 		letter-spacing: 1px;
 	}
 	
+	.stats-card {
+		background-color: #ffffff;
+		border-radius: 20px;
+		padding: 20px;
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.03);
+		border: 1px solid rgba(0, 0, 0, 0.02);
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 20px;
+	}
+
 	.stats-row {
 		display: flex;
 		flex-direction: row;
-		justify-content: space-between;
-		margin-bottom: 30px;
+		justify-content: space-around;
+		align-items: center;
+		padding-bottom: 5px;
 	}
 	
-	.stat-box {
-		flex: 1;
-		background-color: #ffffff;
-		padding: 20px 10px;
-		border-radius: 16px;
+	.stat-item {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin: 0 6px;
-		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.03);
-		border: 1px solid rgba(0, 0, 0, 0.02);
+		min-width: 80px;
 	}
 	
 	.stat-num {
@@ -742,6 +819,56 @@
 	.record-reason {
 		color: #333;
 		font-size: 15px;
+	}
+
+	/* AI Analysis Styles */
+	.ai-entry {
+		margin-top: 15px;
+		padding-top: 15px;
+		border-top: 1px dashed #eee;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	
+	.ai-entry-content {
+		display: flex;
+		align-items: center;
+	}
+	
+	.ai-icon {
+		font-size: 20px;
+		margin-right: 8px;
+	}
+	
+	.ai-text {
+		font-size: 14px;
+		color: #4CAF50;
+		font-weight: bold;
+	}
+	
+	.ai-arrow {
+		color: #999;
+		font-size: 14px;
+	}
+	
+	.ai-modal {
+		height: 80%;
+		max-height: 80%;
+	}
+	
+	.ai-scroll-content {
+		flex: 1;
+		width: 100%;
+		margin-top: 10px;
+		overflow: hidden; /* 确保 scroll-view 处理滚动 */
+	}
+	
+	.ai-content-text {
+		font-size: 16px;
+		color: #333;
+		line-height: 1.6;
+		white-space: pre-wrap; /* 保留换行符 */
 	}
 
 </style>

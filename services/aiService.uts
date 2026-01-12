@@ -1,0 +1,72 @@
+export type AiAnalysisResult = {
+	content: string
+	success: boolean
+}
+
+export const analyzeCheckIns = (records: any[]): Promise<AiAnalysisResult> => {
+	return new Promise((resolve, reject) => {
+		// 整理数据Prompt
+		let promptData = "我最近的打卡记录如下：\n";
+		// 取最近20条，避免token过长
+		const recentRecords = records.slice(-20);
+		
+		recentRecords.forEach((item, index) => {
+			const date = new Date(item['timestamp'] as number);
+			const dateStr = `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes()}`;
+			const reason = item['reason'] || "未记录原因";
+			promptData += `${index + 1}. 时间：${dateStr}，原因：${reason}\n`;
+		});
+
+		promptData += `
+请扮演一位既幽默又犀利的“戒色损友”兼“金牌教练”。请根据我的记录，用“你总是在...然后...最后...”的叙述风格来分析我的行为模式。
+具体要求：
+1. 🕵️ 规律揭秘：用“我看出来了，你总是在...”开头，一针见血且略带调侃地指出我的高风险时间点和借口（比如“你总是在深夜寂寞难耐的时候偷偷‘鹿’，是不是以为被窝里就是法外之地？”）。
+2. 📉 剧情推演：接着用“然后...”描述我事后的状态（比如“然后陷入贤者时间的无尽空虚，看着天花板发誓这是最后一次，结果下次还敢”）。
+3. 💡 温馨提示：最后给出一份“温馨提示”，包含3个有趣但硬核的建议，语气要像老朋友一样真诚（比如“温馨提示：下次手痒的时候，不如做个俯卧撑，别让卫生纸成为你唯一的听众”）。
+请直接开始你的表演，不要有任何开场白。`;
+
+		uni.request({
+			url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+			method: 'POST',
+			header: {
+				'Content-Type': 'application/json',
+				'Authorization': 'Bearer a835b9f6866d48ec956d341418df8a50.NuhlKYn58EkCb5iP'
+			},
+			data: {
+				model: "glm-4-flash", // 使用更快的Flash模型，或者用户指定的 GLM-4.1V-Thinking-Flash (但通常API调用标准名为 glm-4 系列)
+				messages: [
+					{
+						role: "user",
+						content: promptData
+					}
+				],
+				temperature: 0.7
+			},
+			success: (res) => {
+				const data = res.data as any;
+				if (data['choices'] != null) {
+					const choices = data['choices'] as any[];
+					if (choices.length > 0) {
+						const content = choices[0]['message']['content'] as string;
+						resolve({
+							content: content,
+							success: true
+						} as AiAnalysisResult);
+						return;
+					}
+				}
+				resolve({
+					content: "分析失败，请稍后再试",
+					success: false
+				} as AiAnalysisResult);
+			},
+			fail: (err) => {
+				console.error('AI Request Failed:', err);
+				resolve({
+					content: "网络请求失败，请检查网络",
+					success: false
+				} as AiAnalysisResult);
+			}
+		});
+	});
+}
