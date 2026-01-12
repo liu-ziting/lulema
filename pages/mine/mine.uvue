@@ -1,7 +1,6 @@
 <template>
 	<view class="content">
 		<view class="user-card">
-			<image class="avatar" src="/static/logo.png" mode="aspectFit"></image>
 			<view class="user-info">
 				<text class="nickname">Lulema User</text>
 				<text class="user-desc">坚持就是胜利</text>
@@ -42,25 +41,82 @@
 				<view class="day-item" 
 					  v-for="(item, index) in calendarDays" 
 					  :key="index"
-					  :class="{ 'not-current': !item.isCurrentMonth, 'has-checkin': item.count > 0, 'today': item.isToday }">
+					  :class="{ 
+						  'not-current': !item.isCurrentMonth, 
+						  'has-checkin': item.count > 0, 
+						  'today': item.isToday,
+						  'selected': isSameDay(selectedDate, item)
+					  }"
+					  @click="selectDate(item)">
 					<text class="day-num">{{ item.day }}</text>
 					<view class="checkin-dot" v-if="item.count > 0"></view>
 				</view>
 			</view>
 			<view class="calendar-footer">
-				<text class="footer-tip">圆点标记表示当天有打卡记录</text>
+				<text class="footer-tip">点击日期查看详情</text>
+			</view>
+		</view>
+
+		<!-- 每日详情弹窗 -->
+		<view class="modal-overlay" v-if="showDayModal" @click="closeDayModal">
+			<view class="modal-content" @click.stop>
+				<view class="modal-header">
+					<text class="modal-title">{{ selectedDateStr }}</text>
+					<text class="modal-close" @click="closeDayModal">×</text>
+				</view>
+				
+				<scroll-view class="records-list" scroll-y="true">
+					<view v-if="selectedDayRecords.length === 0" class="empty-state">
+						<text class="empty-text">当日无破戒记录，继续保持！</text>
+					</view>
+					<view v-else class="record-item" v-for="(record, index) in selectedDayRecords" :key="index">
+						<view class="record-time-box">
+							<text class="record-time">{{ formatTime(record.timestamp) }}</text>
+						</view>
+						<view class="record-info">
+							<text class="record-reason">{{ record.reason || '未记录原因' }}</text>
+						</view>
+					</view>
+				</scroll-view>
+			</view>
+		</view>
+
+		<!-- 原因分析卡片 -->
+		<view class="analysis-card" v-if="reasonStats.length > 0">
+			<text class="card-title">破戒原因分析</text>
+			<view class="chart-container">
+				<view class="chart-row" v-for="(item, index) in reasonStats" :key="index">
+					<text class="chart-label">{{ item.reason || '未知' }}</text>
+					<view class="progress-container">
+						<view class="progress-bar" :style="{ width: item.percentage + '%' }"></view>
+					</view>
+					<text class="chart-value">{{ item.count }}次</text>
+				</view>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script>
+	type CheckInRecord = {
+		timestamp: number
+		reason: string
+	}
+
 	type CalendarDay = {
 		day: number
+		month: number 
+		year: number
 		isCurrentMonth: boolean
 		count: number
 		timestamp: number
 		isToday: boolean
+	}
+	
+	type ReasonStat = {
+		reason: string
+		count: number
+		percentage: number
 	}
 
 	export default {
@@ -73,7 +129,25 @@
 				currentMonth: 0,
 				weekDays: ['日', '一', '二', '三', '四', '五', '六'],
 				calendarDays: [] as CalendarDay[],
-				checkins: [] as number[]
+				checkins: [] as CheckInRecord[],
+				selectedDate: null as CalendarDay | null,
+				showDayModal: false,
+				reasonStats: [] as ReasonStat[]
+			}
+		},
+		computed: {
+			selectedDateStr(): string {
+				if (!this.selectedDate) return ''
+				return `${this.selectedDate!.year}年${this.selectedDate!.month}月${this.selectedDate!.day}日`
+			},
+			selectedDayRecords(): CheckInRecord[] {
+				if (!this.selectedDate) return []
+				const start = new Date(this.selectedDate!.year, this.selectedDate!.month - 1, this.selectedDate!.day).getTime()
+				const end = start + 86400000
+				
+				return this.checkins.filter((r: CheckInRecord): boolean => {
+					return r.timestamp >= start && r.timestamp < end
+				}).sort((a, b) => b.timestamp - a.timestamp)
 			}
 		},
 		onShow() {
@@ -83,11 +157,34 @@
 			this.loadStats()
 		},
 		methods: {
+			formatTime(timestamp: number): string {
+				const date = new Date(timestamp)
+				const hours = date.getHours().toString().padStart(2, '0')
+				const minutes = date.getMinutes().toString().padStart(2, '0')
+				return `${hours}:${minutes}`
+			},
 			loadStats() {
-				const data = uni.getStorageSync('lulema_checkins')
+				const data = uni.getStorageSync('lulema_checkins_v2')
 				this.checkins = []
+				
 				if (Array.isArray(data)) {
-					this.checkins = data as number[]
+					const rawList = data as Array<any>
+					this.checkins = rawList.map((item): CheckInRecord => {
+						return {
+							timestamp: item['timestamp'] as number,
+							reason: item['reason'] as string
+						} as CheckInRecord
+					})
+				} else {
+					// Fallback for migration if v2 doesn't exist but v1 does (handled in index but safe to check)
+					const oldData = uni.getStorageSync('lulema_checkins')
+					if (Array.isArray(oldData)) {
+						const oldTimestamps = oldData as number[]
+						this.checkins = oldTimestamps.map((ts): CheckInRecord => ({
+							timestamp: ts,
+							reason: ''
+						} as CheckInRecord))
+					}
 				}
 				
 				this.totalCount = this.checkins.length
@@ -95,12 +192,36 @@
 				const now = new Date()
 				const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
 				
-				this.todayCount = this.checkins.filter((ts: number) : boolean => {
-					return ts >= startOfDay
+				this.todayCount = this.checkins.filter((r: CheckInRecord) : boolean => {
+					return r.timestamp >= startOfDay
 				}).length
 				
 				this.calculateStreak()
+				this.calculateReasons()
 				this.generateCalendar()
+			},
+			calculateReasons() {
+				const stats = new Map<string, number>()
+				let totalWithReason = 0
+				
+				this.checkins.forEach(record => {
+					const reason = record.reason || '未记录'
+					const count = stats.get(reason) || 0
+					stats.set(reason, count + 1)
+					totalWithReason++
+				})
+				
+				const result: ReasonStat[] = []
+				stats.forEach((count, reason) => {
+					result.push({
+						reason: reason,
+						count: count,
+						percentage: totalWithReason > 0 ? Math.round((count / totalWithReason) * 100) : 0
+					} as ReasonStat)
+				})
+				
+				// Sort by count desc
+				this.reasonStats = result.sort((a, b) => b.count - a.count)
 			},
 			calculateStreak() {
 				if (this.checkins.length === 0) {
@@ -108,15 +229,15 @@
 					return
 				}
 				
-				// Sort checkins and normalize to date strings (YYYY-MM-DD) to remove duplicates
-				const sorted = this.checkins.sort((a, b) => a - b)
+				// Sort checkins
+				const sorted = this.checkins.sort((a, b) => a.timestamp - b.timestamp)
 				const uniqueDays = new Set<string>()
-				sorted.forEach(ts => {
-					const d = new Date(ts)
+				sorted.forEach(r => {
+					const d = new Date(r.timestamp)
 					uniqueDays.add(`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`)
 				})
 				
-				// Convert back to timestamps for easier calculation (using noon to avoid DST issues)
+				// Convert to timestamps
 				const dayTimestamps: number[] = []
 				uniqueDays.forEach(dateStr => {
 					const parts = dateStr.split('-')
@@ -134,7 +255,6 @@
 					maxStreak = 1
 					for (let i = 1; i < dayTimestamps.length; i++) {
 						const diff = dayTimestamps[i] - dayTimestamps[i-1]
-						// Difference should be around 24 hours (86400000 ms), allow some buffer
 						if (diff < 86400000 * 1.5 && diff > 86400000 * 0.5) {
 							currentStreak++
 						} else {
@@ -167,19 +287,21 @@
 				this.calendarDays = []
 				
 				const year = this.currentYear
-				const month = this.currentMonth - 1 // JS months are 0-11
+				const month = this.currentMonth - 1 
 				
 				const firstDayOfMonth = new Date(year, month, 1)
 				const lastDayOfMonth = new Date(year, month + 1, 0)
 				
 				const daysInMonth = lastDayOfMonth.getDate()
-				const startDayOfWeek = firstDayOfMonth.getDay() // 0 (Sun) - 6 (Sat)
+				const startDayOfWeek = firstDayOfMonth.getDay()
 				
 				// Previous month filler
 				const prevMonthLastDay = new Date(year, month, 0).getDate()
 				for (let i = startDayOfWeek - 1; i >= 0; i--) {
 					this.calendarDays.push({
 						day: prevMonthLastDay - i,
+						month: month, // 0-based for Date constructor, careful with display
+						year: month === 0 ? year - 1 : year,
 						isCurrentMonth: false,
 						count: 0,
 						timestamp: 0,
@@ -197,14 +319,16 @@
 					const currentDayStart = new Date(year, month, i).getTime()
 					const currentDayEnd = new Date(year, month, i + 1).getTime()
 					
-					const count = this.checkins.filter((ts: number): boolean => {
-						return ts >= currentDayStart && ts < currentDayEnd
+					const count = this.checkins.filter((r: CheckInRecord): boolean => {
+						return r.timestamp >= currentDayStart && r.timestamp < currentDayEnd
 					}).length
 					
 					const isToday = (year === todayYear && month === todayMonth && i === todayDate)
 					
 					this.calendarDays.push({
 						day: i,
+						month: month + 1, // Display month (1-12)
+						year: year,
 						isCurrentMonth: true,
 						count: count,
 						timestamp: currentDayStart,
@@ -213,16 +337,30 @@
 				}
 				
 				// Next month filler
-				const remainingCells = 42 - this.calendarDays.length // 6 rows * 7 cols
+				const remainingCells = 42 - this.calendarDays.length
 				for (let i = 1; i <= remainingCells; i++) {
 					this.calendarDays.push({
 						day: i,
+						month: month + 2,
+						year: month === 11 ? year + 1 : year,
 						isCurrentMonth: false,
 						count: 0,
 						timestamp: 0,
 						isToday: false
 					} as CalendarDay)
 				}
+			},
+			selectDate(item: CalendarDay) {
+				// Allow selecting any day, even if not current month, logic handles it
+				this.selectedDate = item
+				this.showDayModal = true
+			},
+			closeDayModal() {
+				this.showDayModal = false
+			},
+			isSameDay(d1: CalendarDay | null, d2: CalendarDay): boolean {
+				if (!d1) return false
+				return d1.day === d2.day && d1.month === d2.month && d1.year === d2.year
 			}
 		}
 	}
@@ -232,65 +370,71 @@
 	.content {
 		display: flex;
 		flex-direction: column;
-		background-color: #f5f7fa;
+		background: linear-gradient(180deg, #f0f4ff 0%, #ffffff 100%);
 		min-height: 100%;
-		padding: 60px 16px 16px 16px;
+		padding: 60px 20px 20px 20px;
 	}
 	
 	.user-card {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		align-items: center;
-		padding: 24px;
-		background: linear-gradient(135deg, #007aff, #00c6ff);
-		border-radius: 16px;
-		margin-bottom: 20px;
-		box-shadow: 0 8px 16px rgba(0, 122, 255, 0.2);
+		padding: 0;
+		background-color: transparent;
+		border-radius: 0;
+		margin-bottom: 40px;
+		box-shadow: none;
 	}
 	
 	.avatar {
-		width: 60px;
-		height: 60px;
-		border-radius: 30px;
-		background-color: rgba(255, 255, 255, 0.3);
-		margin-right: 16px;
-		border: 2px solid rgba(255, 255, 255, 0.8);
+		width: 80px;
+		height: 80px;
+		border-radius: 40px;
+		background-color: #fff;
+		margin-right: 0;
+		margin-bottom: 16px;
+		border: 4px solid #ffffff;
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 	}
 	
 	.user-info {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 	}
 	
 	.nickname {
-		font-size: 20px;
-		font-weight: bold;
-		color: #ffffff;
-		margin-bottom: 4px;
+		font-size: 24px;
+		font-weight: 800;
+		color: #333;
+		margin-bottom: 8px;
+		text-shadow: 0 2px 4px rgba(0,0,0,0.05);
 	}
 	
 	.user-desc {
 		font-size: 14px;
-		color: rgba(255, 255, 255, 0.8);
+		color: #666;
+		letter-spacing: 1px;
 	}
 	
 	.stats-row {
 		display: flex;
 		flex-direction: row;
 		justify-content: space-between;
-		margin-bottom: 20px;
+		margin-bottom: 30px;
 	}
 	
 	.stat-box {
 		flex: 1;
 		background-color: #ffffff;
-		padding: 16px;
-		border-radius: 12px;
+		padding: 20px 10px;
+		border-radius: 16px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin: 0 5px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+		margin: 0 6px;
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.03);
+		border: 1px solid rgba(0, 0, 0, 0.02);
 	}
 	
 	.stat-num {
@@ -302,16 +446,18 @@
 	
 	.stat-label {
 		font-size: 12px;
-		color: #999;
+		color: #888;
 	}
 	
 	.calendar-card {
 		background-color: #ffffff;
-		border-radius: 16px;
+		border-radius: 20px;
 		padding: 20px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.03);
+		border: 1px solid rgba(0, 0, 0, 0.02);
 		display: flex;
 		flex-direction: column;
+		margin-bottom: 20px;
 	}
 	
 	.calendar-header {
@@ -320,6 +466,7 @@
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 20px;
+		padding: 0 10px;
 	}
 	
 	.month-switch {
@@ -332,7 +479,7 @@
 	}
 	
 	.current-date {
-		font-size: 18px;
+		font-size: 16px;
 		font-weight: bold;
 		color: #333;
 	}
@@ -345,7 +492,7 @@
 	}
 	
 	.week-item {
-		font-size: 14px;
+		font-size: 13px;
 		color: #999;
 		width: 14.28%;
 		text-align: center;
@@ -359,17 +506,23 @@
 	
 	.day-item {
 		width: 14.28%;
-		height: 45px;
+		height: 40px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		position: relative;
-		margin-bottom: 5px;
+		margin-bottom: 8px;
+		border-radius: 10px;
+		transition: background-color 0.2s;
+	}
+	
+	.day-item:active {
+		background-color: #f0f0f0;
 	}
 	
 	.day-num {
-		font-size: 16px;
+		font-size: 15px;
 		color: #333;
 		z-index: 1;
 	}
@@ -384,12 +537,30 @@
 		border-radius: 2px;
 		background-color: #007aff;
 		position: absolute;
-		bottom: 8px;
+		bottom: 6px;
 	}
 	
 	.today {
-		border: 1px solid #007aff;
-		border-radius: 8px;
+		background-color: #f0f4ff;
+		color: #007aff;
+	}
+	
+	.today .day-num {
+		color: #007aff;
+		font-weight: bold;
+	}
+	
+	.selected {
+		background-color: #007aff;
+		box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3);
+	}
+	
+	.selected .day-num {
+		color: #ffffff;
+	}
+	
+	.selected .checkin-dot {
+		background-color: #ffffff;
 	}
 	
 	.has-checkin .day-num {
@@ -400,10 +571,171 @@
 		margin-top: 15px;
 		display: flex;
 		justify-content: center;
+		border-top: 1px solid #f5f5f5;
+		padding-top: 15px;
 	}
 	
 	.footer-tip {
 		font-size: 12px;
-		color: #bbb;
+		color: #ccc;
 	}
+
+	/* Analysis Card */
+	.analysis-card {
+		background-color: #ffffff;
+		border-radius: 20px;
+		padding: 20px;
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.03);
+		border: 1px solid rgba(0, 0, 0, 0.02);
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 20px;
+	}
+	
+	.card-title {
+		font-size: 18px;
+		font-weight: bold;
+		color: #333;
+		margin-bottom: 20px;
+	}
+	
+	.chart-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		margin-bottom: 16px;
+	}
+	
+	.chart-label {
+		font-size: 14px;
+		color: #666;
+		width: 60px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	
+	.progress-container {
+		flex: 1;
+		height: 8px;
+		background-color: #f5f7fa;
+		border-radius: 4px;
+		margin: 0 12px;
+		overflow: hidden;
+	}
+	
+	.progress-bar {
+		height: 100%;
+		background: linear-gradient(90deg, #4facfe, #00f2fe);
+		border-radius: 4px;
+	}
+	
+	.chart-value {
+		font-size: 14px;
+		color: #333;
+		font-weight: bold;
+		width: 40px;
+		text-align: right;
+	}
+
+	/* Modal Styles */
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+		backdrop-filter: blur(3px);
+	}
+	
+	.modal-content {
+		width: 80%;
+		max-height: 70%;
+		background-color: #ffffff;
+		border-radius: 20px;
+		padding: 20px;
+		display: flex;
+		flex-direction: column;
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+		animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	}
+	
+	@keyframes modalPop {
+		from { opacity: 0; transform: scale(0.8); }
+		to { opacity: 1; transform: scale(1); }
+	}
+	
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 15px;
+		padding-bottom: 15px;
+		border-bottom: 1px solid #f0f0f0;
+	}
+	
+	.modal-title {
+		font-size: 18px;
+		font-weight: bold;
+		color: #333;
+	}
+	
+	.modal-close {
+		font-size: 24px;
+		color: #999;
+		padding: 0 10px;
+	}
+	
+	.records-list {
+		max-height: 300px;
+		width: 100%;
+	}
+	
+	.empty-state {
+		padding: 30px 0;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+	
+	.empty-text {
+		color: #999;
+		font-size: 14px;
+	}
+	
+	.record-item {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		padding: 12px 0;
+		border-bottom: 1px solid #f9f9f9;
+	}
+	
+	.record-time-box {
+		background-color: #f0f4ff;
+		padding: 4px 10px;
+		border-radius: 6px;
+		margin-right: 15px;
+	}
+	
+	.record-time {
+		color: #007aff;
+		font-size: 14px;
+		font-weight: bold;
+	}
+	
+	.record-info {
+		flex: 1;
+	}
+	
+	.record-reason {
+		color: #333;
+		font-size: 15px;
+	}
+
 </style>
